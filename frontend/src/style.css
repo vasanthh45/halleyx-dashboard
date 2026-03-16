@@ -978,3 +978,147 @@ tr:hover td {
   color: #9ca3af;
   text-align: center;
 }
+/* Responsive Design */
+
+/* Tablet - 8 column grid */
+@media (max-width: 1024px) {
+  .widgets-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+
+  .sidebar {
+    width: 200px;
+  }
+}
+
+/* Mobile - 4 column grid */
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    padding: 8px 16px;
+  }
+
+  .nav-link {
+    margin-bottom: 0;
+  }
+
+  .widgets-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .widget-card {
+    grid-column: span 4 !important;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .modal {
+    width: 95vw;
+    margin: 0 auto;
+  }
+
+  .config-body {
+    flex-direction: column;
+  }
+
+  .widget-library {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .drawer {
+    width: 100%;
+  }
+}
+/* Fixed KPI Cards Row */
+.kpi-cards-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+}
+
+.kpi-card-label {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.kpi-card-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Inline tabs */
+.tabs-inline {
+  display: flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tab-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: white;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  background: #0d9488;
+  color: white;
+}
+
+.tab-btn:hover:not(.active) {
+  background: #f3f4f6;
+}
+
+/* Responsive KPI cards */
+@media (max-width: 768px) {
+  .kpi-cards-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-cards-row {
+    grid-template-columns: 1fr;
+  }
+}
