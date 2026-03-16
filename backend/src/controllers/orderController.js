@@ -1,5 +1,19 @@
 const pool = require('../config/db')
 
+// Helper function to generate Customer ID like CUST-0001
+const generateCustomerId = async () => {
+  const result = await pool.query('SELECT COUNT(*) FROM orders')
+  const count = parseInt(result.rows[0].count) + 1
+  return 'CUST-' + String(count).padStart(4, '0')
+}
+
+// Helper function to generate Order ID like ORD-0001
+const generateOrderId = async () => {
+  const result = await pool.query('SELECT COUNT(*) FROM orders')
+  const count = parseInt(result.rows[0].count) + 1
+  return 'ORD-' + String(count).padStart(4, '0')
+}
+
 const getOrders = async (req, res) => {
   try {
     const { dateRange } = req.query
@@ -14,8 +28,7 @@ const getOrders = async (req, res) => {
     } else if (dateRange === '90days') {
       query += " WHERE created_at >= NOW() - INTERVAL '90 days'"
     }
-
-    query += ' ORDER BY created_at DESC'
+query += ' ORDER BY created_at ASC'
     const result = await pool.query(query)
     res.json({ success: true, data: result.rows })
   } catch (error) {
@@ -41,15 +54,20 @@ const createOrder = async (req, res) => {
       })
     }
 
+    const customer_id = await generateCustomerId()
+    const order_id = await generateOrderId()
+
     const result = await pool.query(
       `INSERT INTO orders (
+        customer_id, order_id,
         first_name, last_name, email, phone,
         street_address, city, state, postal_code, country,
         product, quantity, unit_price, total_amount,
-        status, created_by
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        status, created_by, order_date
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,NOW())
       RETURNING *`,
       [
+        customer_id, order_id,
         first_name, last_name, email, phone,
         street_address, city, state, postal_code, country,
         product, quantity, unit_price, total_amount,
