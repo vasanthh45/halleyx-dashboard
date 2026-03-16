@@ -1,22 +1,319 @@
 <template>
   <div class="page">
+
+    <!-- Header -->
     <div class="page-header">
-      <h2 class="page-title">Dashboard</h2>
-      <button class="btn-primary" @click="$router.push('/dashboard-config')">
-        Configure Dashboard
-      </button>
+      <div>
+        <h2 class="page-title">Dashboard</h2>
+        <p class="page-subtitle">View and manage your analytics</p>
+      </div>
+      <div class="header-actions">
+        <!-- Date Filter -->
+        <div class="date-filter">
+          <label class="filter-label">Show data for</label>
+          <select v-model="dateRange" class="form-input filter-select" @change="loadWidgetData">
+            <option value="">All time</option>
+            <option value="today">Today</option>
+            <option value="7days">Last 7 Days</option>
+            <option value="30days">Last 30 Days</option>
+            <option value="90days">Last 90 Days</option>
+          </select>
+        </div>
+        <button class="btn-primary" @click="$router.push('/dashboard-config')">
+          Configure Dashboard
+        </button>
+      </div>
     </div>
 
-    <div class="empty-state">
+    <!-- Empty State -->
+    <div v-if="widgets.length === 0" class="empty-state">
       <div class="empty-state-icon">📊</div>
       <h3>No widgets configured</h3>
       <p>Click Configure Dashboard to get started</p>
     </div>
+
+    <!-- Widgets Grid -->
+    <div v-else class="widgets-grid">
+      <div
+        v-for="widget in widgets"
+        :key="widget.id"
+        class="widget-card"
+        :style="{ gridColumn: 'span ' + widget.width }"
+      >
+        <!-- Widget Header -->
+        <div class="widget-card-header">
+          <span class="widget-card-title">{{ widget.title }}</span>
+          <span class="widget-type-badge">{{ getWidgetLabel(widget.type) }}</span>
+        </div>
+
+        <!-- KPI Widget -->
+        <div v-if="widget.type === 'kpi'" class="widget-preview kpi-widget">
+          <div class="kpi-value">
+            <span v-if="widget.format === 'Currency'">$</span>
+            {{ widgetData[widget.id] || '--' }}
+          </div>
+          <div class="kpi-label">{{ formatMetricLabel(widget.metric) }}</div>
+        </div>
+
+        <!-- Chart Widget -->
+        <div v-else-if="['bar','line','area','scatter'].includes(widget.type)"
+          class="widget-preview chart-widget">
+          <canvas :id="'chart-' + widget.id" style="max-height: 250px"></canvas>
+        </div>
+
+        <!-- Pie Chart Widget -->
+        <div v-else-if="widget.type === 'pie'"
+          class="widget-preview chart-widget">
+          <canvas :id="'chart-' + widget.id" style="max-height: 250px"></canvas>
+        </div>
+
+        <!-- Table Widget -->
+        <div v-else-if="widget.type === 'table'" class="widget-preview table-widget">
+          <div class="mini-table-wrap">
+            <table class="mini-table" :style="{ fontSize: (widget.fontSize || 14) + 'px' }">
+              <thead>
+                <tr :style="{ background: widget.headerBg || '#54bd95' }">
+                  <th v-for="col in getTableColumns(widget)" :key="col">
+                    {{ col }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, i) in getTableRows(widget)" :key="i">
+                  <td v-for="col in getTableColumnKeys(widget)" :key="col">
+                    {{ row[col] }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script>
+import { getDashboard } from '../services/api.js'
+import axios from 'axios'
+import Chart from 'chart.js/auto'
+
 export default {
-  name: 'Dashboard'
+  name: 'Dashboard',
+  data() {
+    return {
+      widgets: [],
+      widgetData: {},
+      tableData: {},
+      dateRange: '30days',
+      charts: {}
+    }
+  },
+  mounted() {
+    this.loadDashboard()
+  },
+  beforeUnmount() {
+    Object.values(this.charts).forEach(chart => chart.destroy())
+  },
+  methods: {
+    getWidgetLabel(type) {
+      const labels = {
+        bar: 'Bar Chart', line: 'Line Chart', pie: 'Pie Chart',
+        area: 'Area Chart', scatter: 'Scatter Plot',
+        table: 'Table', kpi: 'KPI'
+      }
+      return labels[type] || type
+    },
+    formatMetricLabel(metric) {
+  const labels = {
+    total_amount: 'Total Amount',
+    unit_price: 'Unit Price',
+    quantity: 'Quantity',
+    first_name: 'Customer Name',
+    status: 'Status',
+    product: 'Product',
+    created_by: 'Created By'
+  }
+  return labels[metric] || metric || 'Select metric'
+},
+    async loadDashboard() {
+      try {
+        const response = await getDashboard()
+        if (response.data.data && response.data.data.layout_json) {
+          this.widgets = response.data.data.layout_json
+          await this.loadWidgetData()
+        }
+      } catch (error) {
+        console.error('Error loading dashboard:', error)
+      }
+    },
+    async loadWidgetData() {
+  Object.values(this.charts).forEach(chart => chart.destroy())
+  this.charts = {}
+
+  for (const widget of this.widgets) {
+    try {
+      if (widget.type === 'kpi' && widget.metric) {
+        const res = await axios.get('http://localhost:3000/api/widget-data', {
+          params: {
+            type: 'kpi',
+            metric: widget.metric,
+            aggregation: widget.aggregation,
+            dateRange: this.dateRange
+          }
+        })
+        this.widgetData[widget.id] = res.data.value
+      }
+
+      if (['bar','line','area','scatter'].includes(widget.type) && widget.xAxis && widget.yAxis) {
+        const res = await axios.get('http://localhost:3000/api/widget-data', {
+          params: {
+            type: widget.type,
+            xAxis: widget.xAxis,
+            yAxis: widget.yAxis,
+            dateRange: this.dateRange
+          }
+        })
+        await this.$nextTick()
+        await new Promise(resolve => setTimeout(resolve, 100))
+        this.renderChart(widget, res.data.data)
+      }
+
+      if (widget.type === 'pie' && widget.chartData) {
+        const res = await axios.get('http://localhost:3000/api/widget-data', {
+          params: {
+            type: 'pie',
+            chartData: widget.chartData,
+            dateRange: this.dateRange
+          }
+        })
+        await this.$nextTick()
+        await new Promise(resolve => setTimeout(resolve, 100))
+        this.renderPieChart(widget, res.data.data)
+      }
+
+      if (widget.type === 'table') {
+        const res = await axios.get('http://localhost:3000/api/widget-data', {
+          params: { type: 'table', dateRange: this.dateRange }
+        })
+        this.tableData[widget.id] = res.data.data
+      }
+
+    } catch (error) {
+      console.error('Error loading widget data:', error)
+    }
+  }
+},
+    renderChart(widget, data) {
+      const canvas = document.getElementById('chart-' + widget.id)
+      if (!canvas || !data || data.length === 0) return
+
+      if (this.charts[widget.id]) {
+        this.charts[widget.id].destroy()
+      }
+
+      const labels = data.map(d => d.label || '')
+      const values = data.map(d => parseFloat(d.value) || 0)
+      const color = widget.color || '#0d9488'
+
+      const typeMap = {
+        bar: 'bar', line: 'line',
+        area: 'line', scatter: 'scatter'
+      }
+
+      this.charts[widget.id] = new Chart(canvas, {
+        type: typeMap[widget.type] || 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: widget.title,
+            data: widget.type === 'scatter'
+              ? values.map((v, i) => ({ x: i, y: v }))
+              : values,
+            backgroundColor: color + '99',
+            borderColor: color,
+            borderWidth: 2,
+            fill: widget.type === 'area',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: widget.showDataLabel || false },
+            datalabels: { display: false }
+          }
+        }
+      })
+    },
+    renderPieChart(widget, data) {
+      const canvas = document.getElementById('chart-' + widget.id)
+      if (!canvas || !data || data.length === 0) return
+
+      if (this.charts[widget.id]) {
+        this.charts[widget.id].destroy()
+      }
+
+      const labels = data.map(d => d.label || '')
+      const values = data.map(d => parseFloat(d.value) || 0)
+      const colors = [
+        '#0d9488', '#3b82f6', '#f59e0b',
+        '#ef4444', '#8b5cf6', '#10b981'
+      ]
+
+      this.charts[widget.id] = new Chart(canvas, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors.slice(0, values.length),
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: widget.showLegend || false }
+          }
+        }
+      })
+    },
+    getTableColumns(widget) {
+      if (!widget.columns || widget.columns.length === 0) return []
+      const labels = {
+        customer_id: 'Customer ID',
+        customer_name: 'Customer name',
+        email: 'Email',
+        phone: 'Phone',
+        address: 'Address',
+        order_id: 'Order ID',
+        order_date: 'Order date',
+        product: 'Product',
+        quantity: 'Quantity',
+        unit_price: 'Unit price',
+        total_amount: 'Total amount',
+        status: 'Status',
+        created_by: 'Created by'
+      }
+      return widget.columns.map(c => labels[c] || c)
+    },
+    getTableColumnKeys(widget) {
+      return widget.columns || []
+    },
+    getTableRows(widget) {
+  const data = this.tableData[widget.id] || []
+  const limit = parseInt(widget.pagination) || 10
+  return data.slice(0, limit).map(row => ({
+    ...row,
+    customer_name: (row.first_name || '') + ' ' + (row.last_name || ''),
+    address: (row.street_address || '') + ', ' + (row.city || '') + ', ' + (row.state || '')
+  }))
+}
+  }
 }
 </script>
