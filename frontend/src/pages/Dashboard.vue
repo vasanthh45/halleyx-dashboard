@@ -1,6 +1,21 @@
 <template>
   <div class="page">
-
+    <!-- Company Banner -->
+<!-- Company Banner -->
+<div class="company-banner">
+  <div class="company-banner-logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="3" fill="white"/>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" stroke="white" stroke-width="1.5" fill="none"/>
+      <path d="M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93" stroke="white" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div style="flex:1;">
+    <div class="company-banner-title">TeleConnect Analytics</div>
+    <div class="company-banner-sub">Internet & Mobile Services — Order & Analytics Dashboard</div>
+  </div>
+  <span class="company-banner-badge">Admin view</span>
+</div>
     <!-- Header -->
     <div class="page-header">
       <div>
@@ -33,7 +48,7 @@
     </div>
 
     <!-- Dashboard Tab -->
-    <div v-if="activeTab === 'dashboard'">
+    <div v-show="activeTab === 'dashboard'">
 
       <div v-if="stats.totalOrders > 0" class="kpi-cards-row">
         <div class="kpi-card">
@@ -80,7 +95,7 @@
         >
           <div class="widget-card-header">
             <span class="widget-card-title">{{ widget.title }}</span>
-            <span class="widget-type-badge">{{ getWidgetLabel(widget.type) }}</span>
+            
           </div>
 
           <div v-if="widget.type === 'kpi'" class="widget-preview kpi-widget">
@@ -123,7 +138,7 @@
     </div>
 
     <!-- Table Tab -->
-    <div v-if="activeTab === 'table'">
+    <div v-show="activeTab === 'table'">
 
       <!-- No orders empty state -->
       <div v-if="orders.length === 0" class="dashboard-empty-state">
@@ -527,63 +542,161 @@ export default {
       }
     },
 
-    renderChart(widget, data) {
-      const canvas = document.getElementById('chart-' + widget.id)
-      if (!canvas || !data || data.length === 0) return
-      if (this.charts[widget.id]) this.charts[widget.id].destroy()
-      const labels = data.map(d => { const l = d.label || ''; return l.length > 10 ? l.substring(0, 10) + '..' : l })
-      const values = data.map(d => parseFloat(d.value) || 0)
-      const color = widget.color || '#0d9488'
-      const typeMap = { bar: 'bar', line: 'line', area: 'line', scatter: 'scatter' }
-      this.charts[widget.id] = new Chart(canvas, {
-        type: typeMap[widget.type] || 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: widget.title,
-            data: widget.type === 'scatter' ? values.map((v, i) => ({ x: i, y: v })) : values,
-            backgroundColor: color + '99',
-            borderColor: color,
-            borderWidth: 2,
-            fill: widget.type === 'area',
-            tension: 0.4,
-            borderRadius: widget.type === 'bar' ? 4 : 0
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { font: { size: 10 }, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
-            y: { ticks: { font: { size: 10 } }, grid: { color: '#f3f4f6' } }
+   renderChart(widget, data) {
+  const canvas = document.getElementById('chart-' + widget.id)
+  if (!canvas || !data || data.length === 0) return
+  if (this.charts[widget.id]) this.charts[widget.id].destroy()
+
+  const labels = data.map(d => {
+    const l = d.label || ''
+    return l.length > 12 ? l.substring(0, 12) + '..' : l
+  })
+  const values = data.map(d => parseFloat(d.value) || 0)
+  const color = widget.color || '#0d9488'
+
+  const typeMap = { bar: 'bar', line: 'line', area: 'line', scatter: 'scatter' }
+
+  this.charts[widget.id] = new Chart(canvas, {
+    type: typeMap[widget.type] || 'bar',
+    data: {
+      labels,
+      datasets: [{
+  label: widget.title,
+  data: widget.type === 'scatter'
+    ? values.map((v, i) => ({ x: i, y: v }))
+    : values,
+  backgroundColor: widget.type === 'bar'
+    ? color + 'dd'
+    : widget.type === 'area'
+    ? (ctx) => {
+        const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height)
+        gradient.addColorStop(0, color + 'aa')
+        gradient.addColorStop(1, color + '00')
+        return gradient
+      }
+    : color + '22',
+  borderColor: color,
+  borderWidth: widget.type === 'bar' ? 0 : 2.5,
+  fill: widget.type === 'area',
+  tension: 0.4,
+  borderRadius: widget.type === 'bar' ? 6 : 0,
+  borderSkipped: false,
+  pointBackgroundColor: color,
+  pointBorderColor: '#fff',
+  pointBorderWidth: 2,
+  pointRadius: widget.type === 'line' || widget.type === 'area' ? 5 : 0,
+  pointHoverRadius: 7,
+}]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#f1f5f9',
+          bodyColor: '#94a3b8',
+          padding: 12,
+          cornerRadius: 8,
+          displayColors: false,
+          callbacks: {
+            label: (context) => {
+              return ' ' + context.parsed.y.toLocaleString()
+            }
           }
         }
-      })
-    },
+      },
+      scales: {
+        x: {
+          ticks: {
+            font: { size: 11, family: 'system-ui' },
+            color: '#94a3b8',
+            maxRotation: 0,
+            minRotation: 0
+          },
+          grid: { display: false },
+          border: { display: false }
+        },
+        y: {
+  ticks: {
+    font: { size: 11, family: 'system-ui' },
+    color: '#94a3b8',
+    callback: (value) => value.toLocaleString()
+  },
+  grid: {
+    display: false
+  },
+  border: { display: false }
+}
+      }
+    }
+  })
+},
 
     renderPieChart(widget, data) {
-      const canvas = document.getElementById('chart-' + widget.id)
-      if (!canvas || !data || data.length === 0) return
-      if (this.charts[widget.id]) this.charts[widget.id].destroy()
-      const labels = data.map(d => d.label || '')
-      const values = data.map(d => parseFloat(d.value) || 0)
-      const colors = ['#0d9488','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#10b981']
-      this.charts[widget.id] = new Chart(canvas, {
-        type: 'pie',
-        data: {
-          labels,
-          datasets: [{ data: values, backgroundColor: colors.slice(0, values.length), borderWidth: 2, borderColor: '#fff' }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12, padding: 8 } }
+  const canvas = document.getElementById('chart-' + widget.id)
+  if (!canvas || !data || data.length === 0) return
+  if (this.charts[widget.id]) this.charts[widget.id].destroy()
+
+  const labels = data.map(d => d.label || '')
+  const values = data.map(d => parseFloat(d.value) || 0)
+  const colors = [
+    '#0d9488', '#3b82f6', '#f59e0b',
+    '#ef4444', '#8b5cf6', '#10b981',
+    '#f97316', '#06b6d4'
+  ]
+
+  this.charts[widget.id] = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors.slice(0, values.length),
+        borderWidth: 3,
+        borderColor: '#ffffff',
+        hoverBorderWidth: 4,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: {
+        legend: {
+  display: true,
+  position: 'right',
+  labels: {
+    font: { size: 11 },
+    color: '#374151',
+    boxWidth: 12,
+    padding: 12
+  }
+},
+        tooltip: {
+          backgroundColor: '#1e293b',
+          titleColor: '#f1f5f9',
+          bodyColor: '#94a3b8',
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: {
+            label: (context) => {
+              const total = context.dataset.data.reduce((a, b) => a + b, 0)
+              const percentage = ((context.raw / total) * 100).toFixed(1)
+              return ` ${context.raw} (${percentage}%)`
+            }
           }
         }
-      })
-    },
+      }
+    }
+  })
+},
 
     formatMetricLabel(metric) {
       const labels = { total_amount: 'Total Amount', unit_price: 'Unit Price', quantity: 'Quantity', first_name: 'Customer Name', status: 'Status', product: 'Product', created_by: 'Created By' }
