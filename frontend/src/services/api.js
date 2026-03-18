@@ -3,7 +3,10 @@ import axios from 'axios'
 const api = axios.create({
   baseURL: 'http://localhost:3000/api'
 })
-
+// Widget data API calls
+export const getWidgetData = (params) => {
+  return api.get('/widget-data', { params })
+}
 // Orders API calls
 export const getOrders = (dateRange) => {
   return api.get('/orders', { params: { dateRange } })
