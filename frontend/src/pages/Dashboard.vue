@@ -16,7 +16,7 @@
           <option value="30days">Last 30 Days</option>
           <option value="90days">Last 90 Days</option>
         </select>
-        <button class="btn-configure" @click="$router.push('/dashboard-config')">
+        <button v-if="activeTab === 'dashboard' && (widgets.length > 0 || stats.totalOrders > 0)" class="btn-configure" @click="$router.push('/dashboard-config')">
           ⚙ Configure dashboard
         </button>
       </div>
@@ -34,7 +34,8 @@
 
     <!-- Dashboard Tab -->
     <div v-if="activeTab === 'dashboard'">
-      <div class="kpi-cards-row">
+
+      <div v-if="stats.totalOrders > 0" class="kpi-cards-row">
         <div class="kpi-card">
           <div class="kpi-card-label">Total Orders</div>
           <div class="kpi-card-value">{{ stats.totalOrders }}</div>
@@ -53,12 +54,23 @@
         </div>
       </div>
 
-      <div v-if="widgets.length === 0" class="empty-state">
-        <div class="empty-state-icon">📊</div>
-        <h3>No widgets configured</h3>
-        <p>Click Configure Dashboard to get started</p>
+      <!-- Empty State -->
+      <div v-if="widgets.length === 0" class="dashboard-empty-state">
+        <div class="dashboard-empty-icon">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" rx="12" fill="#f3f4f6"/>
+            <path d="M20 44 L20 32 L28 24 L36 30 L44 20 L44 44 Z" stroke="#9ca3af" stroke-width="2" fill="none" stroke-linejoin="round"/>
+            <circle cx="44" cy="20" r="2" fill="#9ca3af"/>
+          </svg>
+        </div>
+        <h3 class="dashboard-empty-title">Dashboard Not Configured</h3>
+        <p class="dashboard-empty-sub">Configure your dashboard to start viewing analytics</p>
+        <button class="btn-configure-center" @click="$router.push('/dashboard-config')">
+          ⚙ Configure dashboard
+        </button>
       </div>
 
+      <!-- Widgets Grid -->
       <div v-else class="widgets-grid">
         <div
           v-for="widget in widgets"
@@ -107,80 +119,95 @@
 
         </div>
       </div>
+
     </div>
 
     <!-- Table Tab -->
     <div v-if="activeTab === 'table'">
 
-      <!-- Table Header -->
-      <div class="table-toolbar">
-        <div class="search-box">
-          <input v-model="searchQuery" type="text" placeholder="Search orders..." class="search-input"/>
+      <!-- No orders empty state -->
+      <div v-if="orders.length === 0" class="dashboard-empty-state">
+        <div class="dashboard-empty-icon">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect width="64" height="64" rx="12" fill="#f3f4f6"/>
+            <path d="M16 48 L16 28 L24 28 L24 48 M28 48 L28 20 L36 20 L36 48 M40 48 L40 32 L48 32 L48 48" stroke="#9ca3af" stroke-width="2" fill="none"/>
+          </svg>
         </div>
-        <button class="btn-primary" @click="openCreateModal">+ Create order</button>
+        <h3 class="dashboard-empty-title">No Orders Yet</h3>
+        <p class="dashboard-empty-sub">Click Create order to add your first order</p>
+        <button class="btn-configure-center" @click="openCreateModal">
+          + Create order
+        </button>
       </div>
 
-      <!-- Empty State -->
-      <div v-if="filteredOrders.length === 0" class="empty-state">
-        <div class="empty-state-icon">📋</div>
-        <h3>No orders yet</h3>
-        <p>Click Create order to add your first order</p>
-      </div>
-
-      <!-- Orders Table -->
-      <div v-else class="table-container">
-  <table>
-    <thead>
-      <tr>
-        <th>S.no</th>
-        <th>Customer ID</th>
-        <th>Customer name</th>
-        <th>Email id</th>
-        <th>Phone number</th>
-        <th>Address</th>
-        <th>Order ID</th>
-        <th>Order date</th>
-        <th>Product</th>
-        <th>Quantity</th>
-        <th>Unit price</th>
-        <th>Total amount</th>
-        <th>Status</th>
-        <th>Created by</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="(order, index) in filteredOrders" :key="order.id">
-        <td>{{ index + 1 }}</td>
-        <td>{{ order.customer_id }}</td>
-        <td>{{ order.first_name }} {{ order.last_name }}</td>
-        <td>{{ order.email }}</td>
-        <td>{{ order.phone }}</td>
-        <td>{{ order.street_address }}, {{ order.city }}, {{ order.state }}</td>
-        <td>{{ order.order_id }}</td>
-        <td>{{ formatDate(order.order_date || order.created_at) }}</td>
-        <td>{{ order.product }}</td>
-        <td>{{ order.quantity }}</td>
-        <td>${{ order.unit_price }}</td>
-        <td>${{ order.total_amount }}</td>
-        <td>
-          <span class="badge" :class="{
-            'badge-pending': order.status === 'Pending',
-            'badge-inprogress': order.status === 'In Progress',
-            'badge-completed': order.status === 'Completed'
-          }">{{ order.status }}</span>
-        </td>
-        <td>{{ order.created_by }}</td>
-        <td>
-          <div class="action-buttons">
-            <button class="btn-edit" @click="openEditModal(order)">Edit</button>
-            <button class="btn-danger" @click="confirmDelete(order)">Delete</button>
+      <!-- Has orders -->
+      <div v-else>
+        <div class="table-toolbar">
+          <div class="search-box">
+            <input v-model="searchQuery" type="text" placeholder="Search orders..." class="search-input"/>
           </div>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+          <button class="btn-primary" @click="openCreateModal">+ Create order</button>
+        </div>
+
+        <div v-if="filteredOrders.length === 0" class="dashboard-empty-state">
+          <h3 class="dashboard-empty-title">No results found</h3>
+          <p class="dashboard-empty-sub">Try a different search term</p>
+        </div>
+
+        <div v-else class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>S.no</th>
+                <th>Customer ID</th>
+                <th>Customer name</th>
+                <th>Email id</th>
+                <th>Phone number</th>
+                <th>Address</th>
+                <th>Order ID</th>
+                <th>Order date</th>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Unit price</th>
+                <th>Total amount</th>
+                <th>Status</th>
+                <th>Created by</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(order, index) in filteredOrders" :key="order.id">
+                <td>{{ index + 1 }}</td>
+                <td>{{ order.customer_id }}</td>
+                <td>{{ order.first_name }} {{ order.last_name }}</td>
+                <td>{{ order.email }}</td>
+                <td>{{ order.phone }}</td>
+                <td>{{ order.street_address }}, {{ order.city }}, {{ order.state }}</td>
+                <td>{{ order.order_id }}</td>
+                <td>{{ formatDate(order.order_date || order.created_at) }}</td>
+                <td>{{ order.product }}</td>
+                <td>{{ order.quantity }}</td>
+                <td>${{ order.unit_price }}</td>
+                <td>${{ order.total_amount }}</td>
+                <td>
+                  <span class="badge" :class="{
+                    'badge-pending': order.status === 'Pending',
+                    'badge-inprogress': order.status === 'In Progress',
+                    'badge-completed': order.status === 'Completed'
+                  }">{{ order.status }}</span>
+                </td>
+                <td>{{ order.created_by }}</td>
+              <td>
+  <div class="action-buttons">
+    <button class="btn-edit" @click="openEditModal(order)">Edit</button>
+    <button class="btn-danger" @click="confirmDelete(order)">Delete</button>
+  </div>
+</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
     </div>
 
@@ -346,6 +373,7 @@ export default {
       tableData: {},
       orders: [],
       searchQuery: '',
+      openMenuId: null,
       dateRange: '30days',
       charts: {},
       stats: {
@@ -390,6 +418,16 @@ export default {
   },
   methods: {
 
+    toggleMenu(id) {
+      this.openMenuId = this.openMenuId === id ? null : id
+    },
+
+    formatDate(dateStr) {
+      if (!dateStr) return ''
+      const d = new Date(dateStr)
+      return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+    },
+
     getWidgetLabel(type) {
       const labels = {
         bar: 'Bar Chart', line: 'Line Chart', pie: 'Pie Chart',
@@ -397,11 +435,6 @@ export default {
       }
       return labels[type] || type
     },
-    formatDate(dateStr) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
-},
 
     async loadAllData() {
       await Promise.all([
@@ -591,7 +624,16 @@ export default {
     openEditModal(order) {
       this.isEditing = true
       this.selectedOrder = order
-      this.form = { ...order, filters: [] }
+      this.form = {
+        first_name: order.first_name, last_name: order.last_name,
+        email: order.email, phone: order.phone,
+        street_address: order.street_address, city: order.city,
+        state: order.state, postal_code: order.postal_code,
+        country: order.country, product: order.product,
+        quantity: order.quantity, unit_price: order.unit_price,
+        total_amount: order.total_amount, status: order.status,
+        created_by: order.created_by
+      }
       this.errors = {}
       this.showModal = true
     },
