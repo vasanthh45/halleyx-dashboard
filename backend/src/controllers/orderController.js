@@ -1,35 +1,40 @@
 const pool = require('../config/db')
 
-// Helper function to generate Customer ID like CUST-0001
+// ── ID Generators ─────────────────────────────────────────
+
+// Uses MAX id to avoid duplicates when rows are deleted
 const generateCustomerId = async () => {
-  const result = await pool.query('SELECT COUNT(*) FROM orders')
-  const count = parseInt(result.rows[0].count) + 1
-  return 'CUST-' + String(count).padStart(4, '0')
+  const result = await pool.query('SELECT MAX(id) FROM orders')
+  const next = (parseInt(result.rows[0].max) || 0) + 1
+  return 'CUST-' + String(next).padStart(4, '0')
 }
 
-// Helper function to generate Order ID like ORD-0001
 const generateOrderId = async () => {
-  const result = await pool.query('SELECT COUNT(*) FROM orders')
-  const count = parseInt(result.rows[0].count) + 1
-  return 'ORD-' + String(count).padStart(4, '0')
+  const result = await pool.query('SELECT MAX(id) FROM orders')
+  const next = (parseInt(result.rows[0].max) || 0) + 1
+  return 'ORD-' + String(next).padStart(4, '0')
 }
+
+// ── Date Filter Helper ────────────────────────────────────
+const buildDateFilter = (dateRange) => {
+  const filters = {
+    today: ' WHERE DATE(created_at) = CURRENT_DATE',
+    '7days': " WHERE created_at >= NOW() - INTERVAL '7 days'",
+    '30days': " WHERE created_at >= NOW() - INTERVAL '30 days'",
+    '90days': " WHERE created_at >= NOW() - INTERVAL '90 days'"
+  }
+  return filters[dateRange] || ''
+}
+
+// ── Controllers ───────────────────────────────────────────
 
 const getOrders = async (req, res) => {
   try {
     const { dateRange } = req.query
-    let query = 'SELECT * FROM orders'
-
-    if (dateRange === 'today') {
-      query += ' WHERE DATE(created_at) = CURRENT_DATE'
-    } else if (dateRange === '7days') {
-      query += " WHERE created_at >= NOW() - INTERVAL '7 days'"
-    } else if (dateRange === '30days') {
-      query += " WHERE created_at >= NOW() - INTERVAL '30 days'"
-    } else if (dateRange === '90days') {
-      query += " WHERE created_at >= NOW() - INTERVAL '90 days'"
-    }
-query += ' ORDER BY created_at ASC'
-    const result = await pool.query(query)
+    const dateFilter = buildDateFilter(dateRange)
+    const result = await pool.query(
+      `SELECT * FROM orders${dateFilter} ORDER BY created_at ASC`
+    )
     res.json({ success: true, data: result.rows })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
@@ -45,12 +50,13 @@ const createOrder = async (req, res) => {
       status, created_by
     } = req.body
 
-    if (!first_name || !last_name || !email || !phone ||
-        !street_address || !city || !state || !postal_code ||
-        !country || !product || !quantity || !unit_price || !created_by) {
+    // Validate required fields
+    const required = { first_name, last_name, email, phone, street_address, city, state, postal_code, country, product, quantity, unit_price, created_by }
+    const missing = Object.keys(required).filter(k => !required[k])
+    if (missing.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Please fill the field'
+        message: `Missing required fields: ${missing.join(', ')}`
       })
     }
 
@@ -74,7 +80,7 @@ const createOrder = async (req, res) => {
         status || 'Pending', created_by
       ]
     )
-    res.json({ success: true, data: result.rows[0] })
+    res.status(201).json({ success: true, data: result.rows[0] })
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
@@ -89,6 +95,12 @@ const updateOrder = async (req, res) => {
       product, quantity, unit_price, total_amount,
       status, created_by
     } = req.body
+
+    // Check order exists
+    const exists = await pool.query('SELECT id FROM orders WHERE id=$1', [id])
+    if (exists.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Order not found' })
+    }
 
     const result = await pool.query(
       `UPDATE orders SET
@@ -113,6 +125,13 @@ const updateOrder = async (req, res) => {
 const deleteOrder = async (req, res) => {
   try {
     const { id } = req.params
+
+    // Check order exists before deleting
+    const exists = await pool.query('SELECT id FROM orders WHERE id=$1', [id])
+    if (exists.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Order not found' })
+    }
+
     await pool.query('DELETE FROM orders WHERE id=$1', [id])
     res.json({ success: true, message: 'Order deleted successfully' })
   } catch (error) {
