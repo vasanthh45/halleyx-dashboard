@@ -239,10 +239,7 @@ export default {
   } catch (error) {
     console.error('Error loading stats:', error)
   }
-},cd "C:\Users\Vasanth\OneDrive - Kamaraj College of Engineering and Technology\Desktop\halleyx-dashboard"
-git add .
-git commit -m "Dashboard matches Figma - KPI cards, tabs, all charts working"
-git push
+},
     async loadOrders() {
       try {
         const response = await getOrders(this.dateRange)
