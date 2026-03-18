@@ -23,23 +23,38 @@
             <span>{{ openSections.charts ? '▾' : '▸' }}</span>
           </div>
           <div v-if="openSections.charts" class="library-items">
-            <div class="library-item" @click="addWidget('bar')">
+            <div class="library-item"
+              draggable="true"
+              @dragstart="onLibraryDragStart($event, 'bar')"
+              @click="addWidget('bar')">
               <span class="widget-icon">📊</span>
               <span>Bar Chart</span>
             </div>
-            <div class="library-item" @click="addWidget('line')">
+            <div class="library-item"
+              draggable="true"
+              @dragstart="onLibraryDragStart($event, 'line')"
+              @click="addWidget('line')">
               <span class="widget-icon">📈</span>
               <span>Line Chart</span>
             </div>
-            <div class="library-item" @click="addWidget('pie')">
+            <div class="library-item"
+              draggable="true"
+              @dragstart="onLibraryDragStart($event, 'pie')"
+              @click="addWidget('pie')">
               <span class="widget-icon">🥧</span>
               <span>Pie Chart</span>
             </div>
-            <div class="library-item" @click="addWidget('area')">
+            <div class="library-item"
+              draggable="true"
+              @dragstart="onLibraryDragStart($event, 'area')"
+              @click="addWidget('area')">
               <span class="widget-icon">📉</span>
               <span>Area Chart</span>
             </div>
-            <div class="library-item" @click="addWidget('scatter')">
+            <div class="library-item"
+              draggable="true"
+              @dragstart="onLibraryDragStart($event, 'scatter')"
+              @click="addWidget('scatter')">
               <span class="widget-icon">✦</span>
               <span>Scatter Plot</span>
             </div>
@@ -52,7 +67,10 @@
             <span>{{ openSections.tables ? '▾' : '▸' }}</span>
           </div>
           <div v-if="openSections.tables" class="library-items">
-            <div class="library-item" @click="addWidget('table')">
+            <div class="library-item"
+              draggable="true"
+              @dragstart="onLibraryDragStart($event, 'table')"
+              @click="addWidget('table')">
               <span class="widget-icon">📋</span>
               <span>Table</span>
             </div>
@@ -65,7 +83,10 @@
             <span>{{ openSections.kpis ? '▾' : '▸' }}</span>
           </div>
           <div v-if="openSections.kpis" class="library-items">
-            <div class="library-item" @click="addWidget('kpi')">
+            <div class="library-item"
+              draggable="true"
+              @dragstart="onLibraryDragStart($event, 'kpi')"
+              @click="addWidget('kpi')">
               <span class="widget-icon">🔢</span>
               <span>KPI Value</span>
             </div>
@@ -73,48 +94,54 @@
         </div>
       </div>
 
-      <div class="canvas-area">
+      <div
+        class="canvas-area"
+        :class="{ 'canvas-drag-over': isDraggingOverCanvas }"
+        @dragover="onCanvasDragOver"
+        @dragleave="onCanvasDragLeave"
+        @drop="onCanvasDrop"
+      >
 
         <div v-if="widgets.length === 0" class="canvas-empty">
           <div class="canvas-empty-icon">📊</div>
-          <p>Click widgets from the library to add them here</p>
+          <p v-if="!isDraggingOverCanvas">Click or drag widgets from the library to add them here</p>
+          <p v-else style="color:#0d9488;font-weight:500">Release to add widget</p>
         </div>
 
-        <div v-else class="widgets-grid">
+        <div v-if="widgets.length > 0" class="widgets-grid">
           <div
             v-for="widget in widgets"
             :key="widget.id"
             class="widget-card"
+            :class="{ 'drag-over': dragOverWidgetId === widget.id }"
             :style="{ gridColumn: 'span ' + widget.width }"
+            draggable="true"
+            @dragstart="onWidgetDragStart($event, widget.id)"
+            @dragover="onWidgetDragOver($event, widget.id)"
+            @dragleave="onWidgetDragLeave"
+            @drop="onWidgetDrop($event, widget.id)"
           >
             <div class="widget-card-header">
               <span class="widget-card-title">{{ widget.title }}</span>
               <div class="widget-card-actions">
-                <button class="widget-action-btn" @click="openSettings(widget)">⚙</button>
-                <button class="widget-action-btn delete" @click="removeWidget(widget.id)">✕</button>
+                <button class="widget-action-btn" @click.stop="openSettings(widget)">⚙</button>
+                <button class="widget-action-btn delete" @click.stop="removeWidget(widget.id)">✕</button>
               </div>
             </div>
 
             <div class="widget-preview">
-
-              <!-- KPI Preview -->
               <div v-if="widget.type === 'kpi'" class="kpi-preview">
                 <div class="kpi-value">--</div>
                 <div class="kpi-label">{{ formatMetricLabel(widget.metric) }}</div>
               </div>
-
-              <!-- Table Preview -->
               <div v-else-if="widget.type === 'table'" class="config-preview-box">
                 <div class="config-preview-icon">📋</div>
                 <div class="config-preview-text">Table Widget</div>
                 <div class="config-preview-sub">Configure settings to set up</div>
               </div>
-
-              <!-- Chart Preview with real mini chart -->
               <div v-else class="chart-container-preview">
                 <canvas :id="'preview-' + widget.id"></canvas>
               </div>
-
             </div>
           </div>
         </div>
@@ -295,6 +322,34 @@
                 <input type="text" v-model="activeWidget.headerBg" class="form-input color-hex" placeholder="#54bd95"/>
               </div>
             </div>
+
+            <div class="form-group">
+              <label class="form-label checkbox-label">
+                <input type="checkbox" v-model="activeWidget.applyFilter"/>
+                Apply filter
+              </label>
+            </div>
+
+            <div v-if="activeWidget.applyFilter" class="filter-section">
+              <div class="filter-section-header">
+                <span style="font-size:13px;font-weight:500;color:#374151">Filters</span>
+                <button class="btn-add-filter" @click="addFilter">+ Add filter</button>
+              </div>
+              <div v-for="(filter, index) in activeWidget.filters" :key="index" class="filter-row">
+                <select v-model="filter.column" class="form-input filter-select-sm">
+                  <option value="">Column</option>
+                  <option v-for="col in tableColumns" :key="col.value" :value="col.value">{{ col.label }}</option>
+                </select>
+                <select v-model="filter.condition" class="form-input filter-select-sm">
+                  <option value="equals">equals</option>
+                  <option value="contains">contains</option>
+                  <option value="greater_than">greater than</option>
+                  <option value="less_than">less than</option>
+                </select>
+                <input v-model="filter.value" class="form-input filter-input-sm" type="text" placeholder="Value"/>
+                <button class="btn-remove-filter" @click="removeFilter(index)">✕</button>
+              </div>
+            </div>
           </template>
 
         </div>
@@ -322,6 +377,10 @@ export default {
       showDrawer: false,
       activeWidget: null,
       previewCharts: {},
+      dragType: null,
+      dragWidgetId: null,
+      dragOverWidgetId: null,
+      isDraggingOverCanvas: false,
       openSections: {
         charts: true,
         tables: true,
@@ -389,6 +448,76 @@ export default {
       if (type === 'table') return 4
       return 5
     },
+
+    onLibraryDragStart(event, type) {
+      this.dragType = type
+      this.dragWidgetId = null
+      event.dataTransfer.effectAllowed = 'copy'
+      event.dataTransfer.setData('text/plain', type)
+    },
+
+    onWidgetDragStart(event, id) {
+      this.dragWidgetId = id
+      this.dragType = null
+      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.setData('text/plain', id.toString())
+    },
+
+    onCanvasDragOver(event) {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+      this.isDraggingOverCanvas = true
+    },
+
+    onCanvasDragLeave(event) {
+      const rect = event.currentTarget.getBoundingClientRect()
+      if (
+        event.clientX < rect.left ||
+        event.clientX >= rect.right ||
+        event.clientY < rect.top ||
+        event.clientY >= rect.bottom
+      ) {
+        this.isDraggingOverCanvas = false
+      }
+    },
+
+    onCanvasDrop(event) {
+      event.preventDefault()
+      this.isDraggingOverCanvas = false
+      const data = event.dataTransfer.getData('text/plain')
+      const widgetTypes = ['bar','line','pie','area','scatter','table','kpi']
+      if (widgetTypes.includes(data)) {
+        this.addWidget(data)
+      }
+      this.dragType = null
+    },
+
+    onWidgetDragOver(event, id) {
+      event.preventDefault()
+      if (this.dragWidgetId && this.dragWidgetId !== id) {
+        this.dragOverWidgetId = id
+      }
+    },
+
+    onWidgetDragLeave() {
+      this.dragOverWidgetId = null
+    },
+
+    onWidgetDrop(event, targetId) {
+      event.preventDefault()
+      event.stopPropagation()
+      if (this.dragWidgetId && this.dragWidgetId !== targetId) {
+        const fromIndex = this.widgets.findIndex(w => w.id === this.dragWidgetId)
+        const toIndex = this.widgets.findIndex(w => w.id === targetId)
+        if (fromIndex !== -1 && toIndex !== -1) {
+          const moved = this.widgets.splice(fromIndex, 1)[0]
+          this.widgets.splice(toIndex, 0, moved)
+        }
+      }
+      this.dragWidgetId = null
+      this.dragOverWidgetId = null
+    },
+
     async addWidget(type) {
       const widget = {
         id: Date.now(),
@@ -411,7 +540,9 @@ export default {
         showLegend: false,
         showDataLabel: false,
         sortBy: '',
-        pagination: '10'
+        pagination: '10',
+        applyFilter: false,
+        filters: []
       }
       this.widgets.push(widget)
       if (!['kpi', 'table'].includes(type)) {
@@ -420,6 +551,7 @@ export default {
         this.renderPreviewChart(widget)
       }
     },
+
     removeWidget(id) {
       if (this.previewCharts[id]) {
         this.previewCharts[id].destroy()
@@ -427,14 +559,20 @@ export default {
       }
       this.widgets = this.widgets.filter(w => w.id !== id)
     },
+
     openSettings(widget) {
-      this.activeWidget = { ...widget }
+      this.activeWidget = {
+        ...widget,
+        filters: widget.filters ? [...widget.filters] : []
+      }
       this.showDrawer = true
     },
+
     closeDrawer() {
       this.showDrawer = false
       this.activeWidget = null
     },
+
     async applySettings() {
       const index = this.widgets.findIndex(w => w.id === this.activeWidget.id)
       if (index !== -1) {
@@ -447,93 +585,71 @@ export default {
       }
       this.closeDrawer()
     },
+
+    addFilter() {
+      if (!this.activeWidget.filters) {
+        this.activeWidget.filters = []
+      }
+      this.activeWidget.filters.push({ column: '', condition: 'equals', value: '' })
+    },
+
+    removeFilter(index) {
+      this.activeWidget.filters.splice(index, 1)
+    },
+
     renderPreviewChart(widget) {
       const canvas = document.getElementById('preview-' + widget.id)
       if (!canvas) return
-
       if (this.previewCharts[widget.id]) {
         this.previewCharts[widget.id].destroy()
       }
-
       const color = widget.color || '#0d9488'
-      const typeMap = {
-        bar: 'bar', line: 'line', area: 'line',
-        scatter: 'scatter', pie: 'pie'
-      }
-
+      const typeMap = { bar: 'bar', line: 'line', area: 'line', scatter: 'scatter', pie: 'pie' }
       const dummyLabels = ['A-1', 'A-2', 'A-3', 'A-4']
       const dummyValues = [120, 85, 150, 110]
-
       let chartData = {}
       if (widget.type === 'pie') {
         chartData = {
           labels: dummyLabels,
-          datasets: [{
-            data: dummyValues,
-            backgroundColor: ['#0d9488', '#3b82f6', '#f59e0b', '#ef4444'],
-            borderWidth: 1
-          }]
+          datasets: [{ data: dummyValues, backgroundColor: ['#0d9488','#3b82f6','#f59e0b','#ef4444'], borderWidth: 1 }]
         }
       } else if (widget.type === 'scatter') {
         chartData = {
-          datasets: [{
-            label: widget.title,
-            data: dummyValues.map((v, i) => ({ x: i + 1, y: v })),
-            backgroundColor: color + '99',
-            borderColor: color
-          }]
+          datasets: [{ label: widget.title, data: dummyValues.map((v,i) => ({ x: i+1, y: v })), backgroundColor: color+'99', borderColor: color }]
         }
       } else {
         chartData = {
           labels: dummyLabels,
-          datasets: [{
-            label: widget.title,
-            data: dummyValues,
-            backgroundColor: color + '99',
-            borderColor: color,
-            borderWidth: 2,
-            fill: widget.type === 'area',
-            tension: 0.4
-          }]
+          datasets: [{ label: widget.title, data: dummyValues, backgroundColor: color+'99', borderColor: color, borderWidth: 2, fill: widget.type === 'area', tension: 0.4 }]
         }
       }
-
       this.previewCharts[widget.id] = new Chart(canvas, {
         type: typeMap[widget.type] || 'bar',
         data: chartData,
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false }
-          },
+          plugins: { legend: { display: false } },
           scales: widget.type === 'pie' ? {} : {
-            x: {
-              ticks: { font: { size: 9 }, maxRotation: 0 },
-              grid: { display: false }
-            },
-            y: {
-              ticks: { font: { size: 9 } }
-            }
+            x: { ticks: { font: { size: 9 }, maxRotation: 0 }, grid: { display: false } },
+            y: { ticks: { font: { size: 9 } } }
           }
         }
       })
     },
+
     isNumericField(field) {
       return ['total_amount', 'unit_price', 'quantity'].includes(field)
     },
+
     formatMetricLabel(metric) {
-  const labels = {
-    total_amount: 'Total Amount',
-    unit_price: 'Unit Price',
-    quantity: 'Quantity',
-    first_name: 'Customer Name',
-    status: 'Status',
-    product: 'Product',
-    created_by: 'Created By'
-  }
-  return labels[metric] || metric || 'Select metric'
-},
+      const labels = {
+        total_amount: 'Total Amount', unit_price: 'Unit Price', quantity: 'Quantity',
+        first_name: 'Customer Name', status: 'Status', product: 'Product', created_by: 'Created By'
+      }
+      return labels[metric] || metric || 'Select metric'
+    },
+
     async saveConfig() {
       try {
         await saveDashboard({ widgets: this.widgets })
