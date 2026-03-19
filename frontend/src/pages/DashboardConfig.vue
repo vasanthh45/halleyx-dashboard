@@ -1,6 +1,7 @@
 <template>
   <div class="config-layout">
 
+    <!-- Header -->
     <div class="config-header">
       <div>
         <h2 class="page-title">Configure Dashboard</h2>
@@ -14,86 +15,32 @@
 
     <div class="config-body">
 
+      <!-- Widget Library -->
       <div class="widget-library">
         <p class="library-title">Widget library</p>
 
-        <div class="library-section">
-          <div class="library-section-header" @click="toggleSection('charts')">
-            <span>Charts</span>
-            <span>{{ openSections.charts ? '▾' : '▸' }}</span>
+        <div v-for="section in librarySections" :key="section.key" class="library-section">
+          <div class="library-section-header" @click="toggleSection(section.key)">
+            <span>{{ section.label }}</span>
+            <span>{{ openSections[section.key] ? '▾' : '▸' }}</span>
           </div>
-          <div v-if="openSections.charts" class="library-items">
-            <div class="library-item"
+          <div v-if="openSections[section.key]" class="library-items">
+            <div
+              v-for="item in section.items"
+              :key="item.type"
+              class="library-item"
               draggable="true"
-              @dragstart="onLibraryDragStart($event, 'bar')"
-              @click="addWidget('bar')">
-              <span class="widget-icon">📊</span>
-              <span>Bar Chart</span>
-            </div>
-            <div class="library-item"
-              draggable="true"
-              @dragstart="onLibraryDragStart($event, 'line')"
-              @click="addWidget('line')">
-              <span class="widget-icon">📈</span>
-              <span>Line Chart</span>
-            </div>
-            <div class="library-item"
-              draggable="true"
-              @dragstart="onLibraryDragStart($event, 'pie')"
-              @click="addWidget('pie')">
-              <span class="widget-icon">🥧</span>
-              <span>Pie Chart</span>
-            </div>
-            <div class="library-item"
-              draggable="true"
-              @dragstart="onLibraryDragStart($event, 'area')"
-              @click="addWidget('area')">
-              <span class="widget-icon">📉</span>
-              <span>Area Chart</span>
-            </div>
-            <div class="library-item"
-              draggable="true"
-              @dragstart="onLibraryDragStart($event, 'scatter')"
-              @click="addWidget('scatter')">
-              <span class="widget-icon">✦</span>
-              <span>Scatter Plot</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="library-section">
-          <div class="library-section-header" @click="toggleSection('tables')">
-            <span>Tables</span>
-            <span>{{ openSections.tables ? '▾' : '▸' }}</span>
-          </div>
-          <div v-if="openSections.tables" class="library-items">
-            <div class="library-item"
-              draggable="true"
-              @dragstart="onLibraryDragStart($event, 'table')"
-              @click="addWidget('table')">
-              <span class="widget-icon">📋</span>
-              <span>Table</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="library-section">
-          <div class="library-section-header" @click="toggleSection('kpis')">
-            <span>KPIs</span>
-            <span>{{ openSections.kpis ? '▾' : '▸' }}</span>
-          </div>
-          <div v-if="openSections.kpis" class="library-items">
-            <div class="library-item"
-              draggable="true"
-              @dragstart="onLibraryDragStart($event, 'kpi')"
-              @click="addWidget('kpi')">
-              <span class="widget-icon">🔢</span>
-              <span>KPI Value</span>
+              @dragstart="onLibraryDragStart($event, item.type)"
+              @click="addWidget(item.type)"
+            >
+              <span class="widget-icon">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Canvas Area -->
       <div
         class="canvas-area"
         :class="{ 'canvas-drag-over': isDraggingOverCanvas }"
@@ -101,14 +48,15 @@
         @dragleave="onCanvasDragLeave"
         @drop="onCanvasDrop"
       >
-
+        <!-- Empty State -->
         <div v-if="widgets.length === 0" class="canvas-empty">
           <div class="canvas-empty-icon">📊</div>
           <p v-if="!isDraggingOverCanvas">Click or drag widgets from the library to add them here</p>
-          <p v-else style="color:#0d9488;font-weight:500">Release to add widget</p>
+          <p v-else style="color:#0d9488; font-weight:500">Release to add widget</p>
         </div>
 
-        <div v-if="widgets.length > 0" class="widgets-grid">
+        <!-- Widgets Grid -->
+        <div v-else class="widgets-grid">
           <div
             v-for="widget in widgets"
             :key="widget.id"
@@ -130,15 +78,18 @@
             </div>
 
             <div class="widget-preview">
+              <!-- KPI Preview -->
               <div v-if="widget.type === 'kpi'" class="kpi-preview">
                 <div class="kpi-value">--</div>
                 <div class="kpi-label">{{ formatMetricLabel(widget.metric) }}</div>
               </div>
+              <!-- Table Preview -->
               <div v-else-if="widget.type === 'table'" class="config-preview-box">
                 <div class="config-preview-icon">📋</div>
                 <div class="config-preview-text">Table Widget</div>
                 <div class="config-preview-sub">Configure settings to set up</div>
               </div>
+              <!-- Chart Preview -->
               <div v-else class="chart-container-preview">
                 <canvas :id="'preview-' + widget.id"></canvas>
               </div>
@@ -190,6 +141,7 @@
 
           <div class="drawer-section-title">Data setting</div>
 
+          <!-- KPI Settings -->
           <template v-if="activeWidget.type === 'kpi'">
             <div class="form-group">
               <label class="form-label">Select metric</label>
@@ -206,8 +158,7 @@
             </div>
             <div class="form-group">
               <label class="form-label">Aggregation</label>
-              <select v-model="activeWidget.aggregation" class="form-input"
-                :disabled="!isNumericField(activeWidget.metric)">
+              <select v-model="activeWidget.aggregation" class="form-input" :disabled="!isNumericField(activeWidget.metric)">
                 <option>Sum</option>
                 <option>Average</option>
                 <option>Count</option>
@@ -226,6 +177,7 @@
             </div>
           </template>
 
+          <!-- Bar / Line / Area / Scatter Settings -->
           <template v-if="['bar','line','area','scatter'].includes(activeWidget.type)">
             <div class="form-group">
               <label class="form-label">X Axis data</label>
@@ -263,6 +215,7 @@
             </div>
           </template>
 
+          <!-- Pie Settings -->
           <template v-if="activeWidget.type === 'pie'">
             <div class="form-group">
               <label class="form-label">Choose chart data</label>
@@ -283,6 +236,7 @@
             </div>
           </template>
 
+          <!-- Table Settings -->
           <template v-if="activeWidget.type === 'table'">
             <div class="form-group">
               <label class="form-label">Choose columns</label>
@@ -322,17 +276,15 @@
                 <input type="text" v-model="activeWidget.headerBg" class="form-input color-hex" placeholder="#54bd95"/>
               </div>
             </div>
-
             <div class="form-group">
               <label class="form-label checkbox-label">
                 <input type="checkbox" v-model="activeWidget.applyFilter"/>
                 Apply filter
               </label>
             </div>
-
             <div v-if="activeWidget.applyFilter" class="filter-section">
               <div class="filter-section-header">
-                <span style="font-size:13px;font-weight:500;color:#374151">Filters</span>
+                <span style="font-size:13px; font-weight:500; color:#374151">Filters</span>
                 <button class="btn-add-filter" @click="addFilter">+ Add filter</button>
               </div>
               <div v-for="(filter, index) in activeWidget.filters" :key="index" class="filter-row">
@@ -371,6 +323,7 @@ import Chart from 'chart.js/auto'
 
 export default {
   name: 'DashboardConfig',
+
   data() {
     return {
       widgets: [],
@@ -381,35 +334,62 @@ export default {
       dragWidgetId: null,
       dragOverWidgetId: null,
       isDraggingOverCanvas: false,
-      openSections: {
-        charts: true,
-        tables: true,
-        kpis: true
-      },
+      openSections: { charts: true, tables: true, kpis: true },
+
+      // Library sections config — easy to extend
+      librarySections: [
+        {
+          key: 'charts',
+          label: 'Charts',
+          items: [
+            { type: 'bar',     icon: '📊', label: 'Bar Chart'    },
+            { type: 'line',    icon: '📈', label: 'Line Chart'   },
+            { type: 'pie',     icon: '🥧', label: 'Pie Chart'    },
+            { type: 'area',    icon: '📉', label: 'Area Chart'   },
+            { type: 'scatter', icon: '✦',  label: 'Scatter Plot' }
+          ]
+        },
+        {
+          key: 'tables',
+          label: 'Tables',
+          items: [{ type: 'table', icon: '📋', label: 'Table' }]
+        },
+        {
+          key: 'kpis',
+          label: 'KPIs',
+          items: [{ type: 'kpi', icon: '🔢', label: 'KPI Value' }]
+        }
+      ],
+
       tableColumns: [
-        { label: 'Customer ID', value: 'customer_id' },
+        { label: 'Customer ID',   value: 'customer_id'   },
         { label: 'Customer name', value: 'customer_name' },
-        { label: 'Email id', value: 'email' },
-        { label: 'Phone number', value: 'phone' },
-        { label: 'Address', value: 'address' },
-        { label: 'Order ID', value: 'order_id' },
-        { label: 'Order date', value: 'order_date' },
-        { label: 'Product', value: 'product' },
-        { label: 'Quantity', value: 'quantity' },
-        { label: 'Unit price', value: 'unit_price' },
-        { label: 'Total amount', value: 'total_amount' },
-        { label: 'Status', value: 'status' },
-        { label: 'Created by', value: 'created_by' }
+        { label: 'Email id',      value: 'email'         },
+        { label: 'Phone number',  value: 'phone'         },
+        { label: 'Address',       value: 'address'       },
+        { label: 'Order ID',      value: 'order_id'      },
+        { label: 'Order date',    value: 'order_date'    },
+        { label: 'Product',       value: 'product'       },
+        { label: 'Quantity',      value: 'quantity'      },
+        { label: 'Unit price',    value: 'unit_price'    },
+        { label: 'Total amount',  value: 'total_amount'  },
+        { label: 'Status',        value: 'status'        },
+        { label: 'Created by',    value: 'created_by'    }
       ]
     }
   },
+
   mounted() {
     this.loadExistingConfig()
   },
+
   beforeUnmount() {
     Object.values(this.previewCharts).forEach(c => c.destroy())
   },
+
   methods: {
+
+    // ── Config Loading ────────────────────────────────────
     async loadExistingConfig() {
       try {
         const response = await getDashboard()
@@ -417,38 +397,13 @@ export default {
           this.widgets = response.data.data.layout_json
           await this.$nextTick()
           this.widgets.forEach(w => {
-            if (!['kpi', 'table'].includes(w.type)) {
-              this.renderPreviewChart(w)
-            }
+            if (!['kpi', 'table'].includes(w.type)) this.renderPreviewChart(w)
           })
         }
-      } catch (error) {
-        console.error('Error loading config:', error)
-      }
-    },
-    toggleSection(section) {
-      this.openSections[section] = !this.openSections[section]
-    },
-    getWidgetLabel(type) {
-      const labels = {
-        bar: 'Bar Chart', line: 'Line Chart', pie: 'Pie Chart',
-        area: 'Area Chart', scatter: 'Scatter Plot', table: 'Table', kpi: 'KPI'
-      }
-      return labels[type] || type
-    },
-    getDefaultWidth(type) {
-      if (type === 'kpi') return 2
-      if (type === 'pie') return 4
-      if (type === 'table') return 4
-      return 5
-    },
-    getDefaultHeight(type) {
-      if (type === 'kpi') return 2
-      if (type === 'pie') return 4
-      if (type === 'table') return 4
-      return 5
+      } catch (e) {}
     },
 
+    // ── Library Drag (from sidebar to canvas) ────────────
     onLibraryDragStart(event, type) {
       this.dragType = type
       this.dragWidgetId = null
@@ -456,13 +411,7 @@ export default {
       event.dataTransfer.setData('text/plain', type)
     },
 
-    onWidgetDragStart(event, id) {
-      this.dragWidgetId = id
-      this.dragType = null
-      event.dataTransfer.effectAllowed = 'move'
-      event.dataTransfer.setData('text/plain', id.toString())
-    },
-
+    // ── Canvas Drop ───────────────────────────────────────
     onCanvasDragOver(event) {
       event.preventDefault()
       event.dataTransfer.dropEffect = 'copy'
@@ -471,14 +420,12 @@ export default {
 
     onCanvasDragLeave(event) {
       const rect = event.currentTarget.getBoundingClientRect()
-      if (
-        event.clientX < rect.left ||
+      const outside =
+        event.clientX < rect.left  ||
         event.clientX >= rect.right ||
-        event.clientY < rect.top ||
+        event.clientY < rect.top   ||
         event.clientY >= rect.bottom
-      ) {
-        this.isDraggingOverCanvas = false
-      }
+      if (outside) this.isDraggingOverCanvas = false
     },
 
     onCanvasDrop(event) {
@@ -492,15 +439,30 @@ export default {
       this.dragType = null
     },
 
+    // ── Widget Reorder Drag ───────────────────────────────
+    onWidgetDragStart(event, id) {
+      this.dragWidgetId = id
+      this.dragType = null
+      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.setData('text/plain', id.toString())
+      // Small delay so drag image renders before style change
+      setTimeout(() => { this.dragOverWidgetId = null }, 0)
+    },
+
     onWidgetDragOver(event, id) {
       event.preventDefault()
+      event.stopPropagation()
+      event.dataTransfer.dropEffect = 'move'
       if (this.dragWidgetId && this.dragWidgetId !== id) {
         this.dragOverWidgetId = id
       }
     },
 
-    onWidgetDragLeave() {
-      this.dragOverWidgetId = null
+    onWidgetDragLeave(event) {
+      // Only clear if truly leaving the card (not entering a child element)
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        this.dragOverWidgetId = null
+      }
     },
 
     onWidgetDrop(event, targetId) {
@@ -508,20 +470,21 @@ export default {
       event.stopPropagation()
       if (this.dragWidgetId && this.dragWidgetId !== targetId) {
         const fromIndex = this.widgets.findIndex(w => w.id === this.dragWidgetId)
-        const toIndex = this.widgets.findIndex(w => w.id === targetId)
+        const toIndex   = this.widgets.findIndex(w => w.id === targetId)
         if (fromIndex !== -1 && toIndex !== -1) {
           const moved = this.widgets.splice(fromIndex, 1)[0]
           this.widgets.splice(toIndex, 0, moved)
         }
       }
-      this.dragWidgetId = null
+      this.dragWidgetId    = null
       this.dragOverWidgetId = null
     },
 
+    // ── Widget Management ─────────────────────────────────
     async addWidget(type) {
       const widget = {
         id: Date.now(),
-        type: type,
+        type,
         title: 'Untitled',
         description: '',
         width: this.getDefaultWidth(type),
@@ -560,11 +523,9 @@ export default {
       this.widgets = this.widgets.filter(w => w.id !== id)
     },
 
+    // ── Settings Drawer ───────────────────────────────────
     openSettings(widget) {
-      this.activeWidget = {
-        ...widget,
-        filters: widget.filters ? [...widget.filters] : []
-      }
+      this.activeWidget = { ...widget, filters: widget.filters ? [...widget.filters] : [] }
       this.showDrawer = true
     },
 
@@ -586,10 +547,9 @@ export default {
       this.closeDrawer()
     },
 
+    // ── Filter Helpers ────────────────────────────────────
     addFilter() {
-      if (!this.activeWidget.filters) {
-        this.activeWidget.filters = []
-      }
+      if (!this.activeWidget.filters) this.activeWidget.filters = []
       this.activeWidget.filters.push({ column: '', condition: 'equals', value: '' })
     },
 
@@ -597,17 +557,18 @@ export default {
       this.activeWidget.filters.splice(index, 1)
     },
 
+    // ── Chart Preview ─────────────────────────────────────
     renderPreviewChart(widget) {
       const canvas = document.getElementById('preview-' + widget.id)
       if (!canvas) return
-      if (this.previewCharts[widget.id]) {
-        this.previewCharts[widget.id].destroy()
-      }
+      if (this.previewCharts[widget.id]) this.previewCharts[widget.id].destroy()
+
       const color = widget.color || '#0d9488'
       const typeMap = { bar: 'bar', line: 'line', area: 'line', scatter: 'scatter', pie: 'pie' }
       const dummyLabels = ['A-1', 'A-2', 'A-3', 'A-4']
       const dummyValues = [120, 85, 150, 110]
-      let chartData = {}
+
+      let chartData
       if (widget.type === 'pie') {
         chartData = {
           labels: dummyLabels,
@@ -615,14 +576,15 @@ export default {
         }
       } else if (widget.type === 'scatter') {
         chartData = {
-          datasets: [{ label: widget.title, data: dummyValues.map((v,i) => ({ x: i+1, y: v })), backgroundColor: color+'99', borderColor: color }]
+          datasets: [{ label: widget.title, data: dummyValues.map((v, i) => ({ x: i + 1, y: v })), backgroundColor: color + '99', borderColor: color }]
         }
       } else {
         chartData = {
           labels: dummyLabels,
-          datasets: [{ label: widget.title, data: dummyValues, backgroundColor: color+'99', borderColor: color, borderWidth: 2, fill: widget.type === 'area', tension: 0.4 }]
+          datasets: [{ label: widget.title, data: dummyValues, backgroundColor: color + '99', borderColor: color, borderWidth: 2, fill: widget.type === 'area', tension: 0.4 }]
         }
       }
+
       this.previewCharts[widget.id] = new Chart(canvas, {
         type: typeMap[widget.type] || 'bar',
         data: chartData,
@@ -638,14 +600,38 @@ export default {
       })
     },
 
+    // ── Utility Helpers ───────────────────────────────────
+    toggleSection(section) {
+      this.openSections[section] = !this.openSections[section]
+    },
+
+    getWidgetLabel(type) {
+      const labels = {
+        bar: 'Bar Chart', line: 'Line Chart', pie: 'Pie Chart',
+        area: 'Area Chart', scatter: 'Scatter Plot', table: 'Table', kpi: 'KPI'
+      }
+      return labels[type] || type
+    },
+
+    getDefaultWidth(type) {
+      const widths = { kpi: 2, pie: 4, table: 4 }
+      return widths[type] || 5
+    },
+
+    getDefaultHeight(type) {
+      const heights = { kpi: 2, pie: 4, table: 4 }
+      return heights[type] || 5
+    },
+
     isNumericField(field) {
       return ['total_amount', 'unit_price', 'quantity'].includes(field)
     },
 
     formatMetricLabel(metric) {
       const labels = {
-        total_amount: 'Total Amount', unit_price: 'Unit Price', quantity: 'Quantity',
-        first_name: 'Customer Name', status: 'Status', product: 'Product', created_by: 'Created By'
+        total_amount: 'Total Amount', unit_price: 'Unit Price',
+        quantity: 'Quantity', first_name: 'Customer Name',
+        status: 'Status', product: 'Product', created_by: 'Created By'
       }
       return labels[metric] || metric || 'Select metric'
     },
@@ -654,10 +640,16 @@ export default {
       try {
         await saveDashboard({ widgets: this.widgets })
         this.$router.push('/')
-      } catch (error) {
-        console.error('Error saving config:', error)
-      }
+      } catch (e) {}
     }
   }
 }
 </script>
+```
+
+Save with **Ctrl+S** and test — drag a widget card over another card, you should see the blue highlight border, release and it swaps. Then push:
+```
+cd "C:\Users\Vasanth\OneDrive - Kamaraj College of Engineering and Technology\Desktop\halleyx-dashboard"
+git add .
+git commit -m "Optimize DashboardConfig - fix widget reorder drag drop, clean code structure"
+git push
